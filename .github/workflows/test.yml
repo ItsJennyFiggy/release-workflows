@@ -19,7 +19,7 @@ jobs:
     steps:
       # 1. Checkout repository
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # 2. Set up Node.js environment
       - name: Set up Node.js
