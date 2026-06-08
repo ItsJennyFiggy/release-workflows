@@ -1,0 +1,14 @@
+name: 'TypeScript GitHub Action Template'
+description: 'A standard template for writing GitHub Actions in TypeScript'
+author: 'ItsJennyFiggy'
+inputs:
+  who-to-greet:
+    description: 'Who to greet in the log'
+    required: true
+    default: 'World'
+outputs:
+  greeting:
+    description: 'The resulting greeting message'
+runs:
+  using: 'node24'
+  main: 'dist/index.js'

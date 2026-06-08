@@ -1,0 +1,36 @@
+{
+  "name": "template-github-action",
+  "version": "1.0.0",
+  "description": "Standard template for TypeScript-based GitHub Actions",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --outfile=dist/index.js",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "keywords": [
+    "github",
+    "actions",
+    "typescript",
+    "template"
+  ],
+  "author": "ItsJennyFiggy",
+  "license": "CC0-1.0",
+  "dependencies": {
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "@emnapi/core": "^1.10.0",
+    "@emnapi/runtime": "^1.10.0",
+    "@types/node": "^25.9.2",
+    "@vitest/coverage-v8": "^4.1.8",
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
