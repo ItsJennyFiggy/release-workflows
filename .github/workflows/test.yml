@@ -57,17 +57,7 @@ jobs:
         run: |
           git diff --exit-code dist/index.js
 
-      # 7. Local Integration Test (Verify execution of compiled action)
-      - name: Run Local Integration Test
-        id: integration
-        uses: ./
-        with:
-          who-to-greet: 'GitHub Actions Integration'
-
-      # 8. Assert Action Output
-      - name: Assert Action Output
-        run: |
-          if [ "${{ steps.integration.outputs.greeting }}" != "Hello, GitHub Actions Integration!" ]; then
-            echo "Unexpected greeting output: '${{ steps.integration.outputs.greeting }}'"
-            exit 1
-          fi
+      # NOTE: No live "uses: ./" integration test here. This action mutates git
+      # tag refs (moves a floating major tag), so invoking it on every PR would
+      # rewrite refs — unsafe as a per-PR check. Its behavior is fully exercised
+      # by the unit tests above (octokit mocked, 100% coverage) per testing_standards.
