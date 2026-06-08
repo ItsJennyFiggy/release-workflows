@@ -1,0 +1,120 @@
+# Reusable Release Workflow
+#
+# Why a GitHub App token instead of the default GITHUB_TOKEN?
+# The default GITHUB_TOKEN cannot trigger downstream `on: release: published`
+# workflows in other repositories (and even in the same repo for some event
+# types). Using a GitHub App token issued for the target repository ensures
+# that release-please's commits, pull requests, and tags are visible to
+# downstream workflows and bypass the branch-protection bypass restrictions
+# that the default token cannot satisfy.
+#
+# Usage:
+#   jobs:
+#     release:
+#       uses: ItsJennyFiggy/release-workflows/.github/workflows/release.yml@v1
+#       secrets: inherit
+#       with:
+#         release_type: node         # optional, default: node
+#         update_major_tag: true     # optional, set true for action repos
+name: Reusable Release
+
+on:
+  workflow_call:
+    inputs:
+      release_type:
+        description: 'release-please release type (e.g. node, python, simple)'
+        type: string
+        required: false
+        default: 'node'
+      update_major_tag:
+        description: 'When true, force-move the floating major tag after a release is created. Set to true for action repos.'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      # 1. Configure AWS credentials via OIDC so we can read from SSM.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: us-west-2
+
+      # 2. Fetch the figgy-release GitHub App credentials from SSM Parameter
+      #    Store and immediately mask both values so they never appear in logs.
+      - name: Fetch GitHub App credentials from SSM
+        id: fetch-ssm
+        run: |
+          CLIENT_ID=$(aws ssm get-parameter \
+            --name "/itsjennyfiggy/global/figgy_release_github_app_client_id" \
+            --with-decryption \
+            --query "Parameter.Value" \
+            --output text)
+          KEY=$(aws ssm get-parameter \
+            --name "/itsjennyfiggy/global/figgy_release_github_app_private_key" \
+            --with-decryption \
+            --query "Parameter.Value" \
+            --output text)
+          echo "::add-mask::$CLIENT_ID"
+          echo "::add-mask::$KEY"
+          echo "client-id=$CLIENT_ID" >> $GITHUB_OUTPUT
+          echo "private-key<<EOF" >> $GITHUB_OUTPUT
+          echo "$KEY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # 3. Generate a scoped GitHub App token limited to the calling repository.
+      - name: Generate GitHub App token
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          # SSM stores the App *client id* (Iv23…), so use client-id (matches
+          # distribute-sync.yml), not app-id which expects the numeric App ID.
+          client-id: ${{ steps.fetch-ssm.outputs.client-id }}
+          private-key: ${{ steps.fetch-ssm.outputs.private-key }}
+          repositories: ${{ github.event.repository.name }}
+
+      # 4. Run release-please to open/update the release PR or create the
+      #    release when the PR is merged. The App token carries the Issues,
+      #    Pull Requests, and Contents permissions release-please requires.
+      - name: Run release-please
+        uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          release-type: ${{ inputs.release_type }}
+
+      # 5. Auto-merge the release PR when the caller opts in via the
+      #    AUTO_MERGE_RELEASE_PR repository variable.
+      - name: Auto-merge release PR
+        # release-please-action's `pr` output is a JSON string of the PullRequest
+        # object — extract `.number`; guard on `prs_created` (a PR was opened/updated).
+        if: steps.release.outputs.prs_created == 'true' && vars.AUTO_MERGE_RELEASE_PR == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh pr merge --merge "${{ fromJson(steps.release.outputs.pr).number }}"
+
+      # 6. Move the floating major tag (e.g. v1) to the newly-released commit.
+      #    Only runs for action repos that opt in via update_major_tag: true,
+      #    and only when release-please actually cut a release (not just a PR).
+      #    NOTE: This step references @v1 which is cut after this PR merges —
+      #    it only executes at runtime, not at workflow authoring time.
+      - name: Move major tag
+        if: inputs.update_major_tag && steps.release.outputs.release_created
+        uses: ItsJennyFiggy/release-workflows@v1
+        with:
+          tag: ${{ steps.release.outputs.tag_name }}
+          github-token: ${{ steps.app-token.outputs.token }}

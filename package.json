@@ -1,7 +1,7 @@
 {
-  "name": "template-github-action",
+  "name": "@itsjennyfiggy/release-workflows",
   "version": "1.0.0",
-  "description": "Standard template for TypeScript-based GitHub Actions",
+  "description": "GitHub Action that force-updates a floating major tag (e.g. v1) to match a newly-released precise tag (e.g. v1.2.3)",
   "main": "dist/index.js",
   "type": "commonjs",
   "scripts": {

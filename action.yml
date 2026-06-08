@@ -1,14 +1,19 @@
-name: 'TypeScript GitHub Action Template'
-description: 'A standard template for writing GitHub Actions in TypeScript'
+name: 'Move Major Tag'
+description: >
+  After a release cuts a precise tag (e.g. v1.2.3), force-updates the floating
+  major tag (e.g. v1) to point at the same commit so that consumers pinned to
+  `@v1` automatically track the latest patch release.
 author: 'ItsJennyFiggy'
 inputs:
-  who-to-greet:
-    description: 'Who to greet in the log'
+  tag:
+    description: 'The full release tag just created, e.g. v1.2.3'
     required: true
-    default: 'World'
+  github-token:
+    description: 'GitHub token with contents: write permission to update refs'
+    required: true
 outputs:
-  greeting:
-    description: 'The resulting greeting message'
+  major-tag:
+    description: 'The floating major tag that was created or updated, e.g. v1'
 runs:
   using: 'node24'
   main: 'dist/index.js'
