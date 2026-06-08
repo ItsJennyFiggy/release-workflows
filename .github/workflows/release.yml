@@ -110,7 +110,7 @@ jobs:
         if: steps.release.outputs.prs_created == 'true' && vars.AUTO_MERGE_RELEASE_PR == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh pr merge --merge "${{ fromJson(steps.release.outputs.pr).number }}"
+        run: gh pr merge --merge --repo "${{ github.repository }}" "${{ fromJson(steps.release.outputs.pr).number }}"
 
       # 6. Move the floating major tag (e.g. v1) to the newly-released commit.
       #    Only runs for action repos that opt in via update_major_tag: true,
