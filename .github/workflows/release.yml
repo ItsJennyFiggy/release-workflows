@@ -81,7 +81,9 @@ jobs:
         uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          app-id: ${{ steps.fetch-ssm.outputs.client-id }}
+          # SSM stores the App *client id* (Iv23…), so use client-id (matches
+          # distribute-sync.yml), not app-id which expects the numeric App ID.
+          client-id: ${{ steps.fetch-ssm.outputs.client-id }}
           private-key: ${{ steps.fetch-ssm.outputs.private-key }}
           repositories: ${{ github.event.repository.name }}
 
@@ -98,10 +100,12 @@ jobs:
       # 5. Auto-merge the release PR when the caller opts in via the
       #    AUTO_MERGE_RELEASE_PR repository variable.
       - name: Auto-merge release PR
-        if: steps.release.outputs.pr && vars.AUTO_MERGE_RELEASE_PR == 'true'
+        # release-please-action's `pr` output is a JSON string of the PullRequest
+        # object — extract `.number`; guard on `prs_created` (a PR was opened/updated).
+        if: steps.release.outputs.prs_created == 'true' && vars.AUTO_MERGE_RELEASE_PR == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh pr merge --merge "${{ steps.release.outputs.pr }}"
+        run: gh pr merge --merge "${{ fromJson(steps.release.outputs.pr).number }}"
 
       # 6. Move the floating major tag (e.g. v1) to the newly-released commit.
       #    Only runs for action repos that opt in via update_major_tag: true,
