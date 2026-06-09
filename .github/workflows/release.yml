@@ -54,43 +54,12 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: us-west-2
 
-      # 2. Fetch the figgy-release GitHub App credentials from SSM Parameter
-      #    Store and immediately mask both values so they never appear in logs.
-      - name: Fetch GitHub App credentials from SSM
-        id: fetch-ssm
-        run: |
-          CLIENT_ID=$(aws ssm get-parameter \
-            --name "/itsjennyfiggy/global/figgy_release_github_app_client_id" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text)
-          KEY=$(aws ssm get-parameter \
-            --name "/itsjennyfiggy/global/figgy_release_github_app_private_key" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text)
-          echo "::add-mask::$CLIENT_ID"
-          # Mask each line individually — ::add-mask:: is line-based; passing a
-          # multi-line PEM as a single value only masks the first line, leaving
-          # every subsequent body line visible in the log.
-          while IFS= read -r line; do
-            [ -n "$line" ] && echo "::add-mask::$line"
-          done <<< "$KEY"
-          echo "client-id=$CLIENT_ID" >> $GITHUB_OUTPUT
-          echo "private-key<<EOF" >> $GITHUB_OUTPUT
-          echo "$KEY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      # 3. Generate a scoped GitHub App token limited to the calling repository.
+      # 2. Generate a scoped GitHub App token limited to the calling repository.
       - name: Generate GitHub App token
-        uses: actions/create-github-app-token@v3
         id: app-token
+        uses: ItsJennyFiggy/action-github-app-token@v1
         with:
-          # SSM stores the App *client id* (Iv23…), so use client-id (matches
-          # distribute-sync.yml), not app-id which expects the numeric App ID.
-          client-id: ${{ steps.fetch-ssm.outputs.client-id }}
-          private-key: ${{ steps.fetch-ssm.outputs.private-key }}
-          repositories: ${{ github.event.repository.name }}
+          app: figgy_release
 
       # 4. Run release-please to open/update the release PR or create the
       #    release when the PR is merged. The App token carries the Issues,
