@@ -124,4 +124,4 @@ The compiled `dist/index.js` is committed to the repository — GitHub Actions r
 
 ## Licensing
 
-CC0 1.0 Universal (Public Domain). See [LICENSE](LICENSE).
+Licensed under the MIT License. See [LICENSE](LICENSE).
