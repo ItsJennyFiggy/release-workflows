@@ -60,9 +60,11 @@ masking leak (commit `addcc9a`, "mask each PEM key line individually").
    from SSM into a shell variable and written multi-line into `$GITHUB_OUTPUT` via a
    heredoc, then masked *line-by-line* (the correct workaround for GitHub's line-based
    `::add-mask::`). That masking is fragile by construction, and the README tells
-   readers the token is minted by the official `actions/create-github-app-token` —
-   hiding the hand-rolled SSM-fetch path that is the actual historical leak surface. A
-   public auditor reading the README would not even know where to look.
+   readers the token is minted directly by the official `actions/create-github-app-token`.
+   The README does name the SSM fetch, but it omits the intermediate
+   `action-github-app-token` composite and its line-by-line PEM masking — the layer that
+   is the actual historical leak surface — so a public auditor would not know that
+   hand-rolled masking sits in the credential path at all.
 
 2. **Supply-chain posture is below the bar a public Actions repo is held to.** Every
    third-party action is pinned to a **mutable major tag** (`@v6`, `@v5`, `@v3`), not a
@@ -300,8 +302,11 @@ copy-paste caller example, and an architecture diagram. Two problems:
 
 - **`DOC-01` The README is inaccurate about the credential path (security-relevant).**
   It states the token is minted by **`actions/create-github-app-token`** "scoped to the
-  releasing repository," omitting the hand-rolled `action-github-app-token` SSM-fetch +
-  line-masking step that is the *actual* historical leak surface. For an OSS readiness
+  releasing repository." The README *does* mention the SSM fetch, but it names the
+  official action as the **direct** minter and omits the intermediate
+  `action-github-app-token` composite and its line-by-line PEM masking — the step that is
+  the *actual* historical leak surface (the official action is in fact invoked *inside*
+  that sibling action, not directly). For an OSS readiness
   doc this is the single most misleading statement in the repo — it must describe the
   real path (SSM → mask → official token mint) so reviewers can audit it.
 - **`DOC-02` README links to internal ADRs** in `ItsJennyFiggy/template-base`
@@ -388,7 +393,7 @@ Verify each against its primary source at implementation time.
 | **SEC-05** | Apply least-privilege permissions | Secret handling | High | S | Job grants `contents/pull-requests/issues: write` though `release-please` uses the App token; `id-token: write` is workflow-wide | Top-level `permissions` reduced to `contents: read`; job-level writes reduced to the minimum actually needed; `id-token: write` scoped to the release job only; release still succeeds |
 | **SEC-06** | Declare typed `workflow_call.secrets` | Secret handling | Medium | S | `secrets: inherit` passes ALL caller secrets | `on.workflow_call.secrets` declares `AWS_ROLE_TO_ASSUME` (required); `release-self.yml` + README updated to pass it explicitly instead of `inherit` |
 | **SEC-07** | Gate role assumption behind a GitHub Environment | Secret handling | Medium | M | No human/reviewer gate before a token is minted | A GitHub Environment (e.g. `release`) with required reviewers referenced by the release job; OIDC `sub` pinned to that environment; documented |
-| **DOC-01** | Correct README's credential-path description | Documentation | High | S | README claims official `create-github-app-token` mints the token, hiding the real SSM-fetch/mask leak surface | README accurately describes SSM → line-mask → `create-github-app-token`; names `action-github-app-token`; links to SECURITY for the leak-prevention rationale |
+| **DOC-01** | Correct README's credential-path description | Documentation | High | S | README names `create-github-app-token` as the direct minter and omits the intermediate `action-github-app-token` masking layer that is the real leak surface | README accurately describes SSM → line-mask → `create-github-app-token`; names `action-github-app-token`; links to SECURITY for the leak-prevention rationale |
 | **DOC-02** | Remove/inline internal ADR links | Documentation | Medium | S | Links to private `template-base` repo are dead for public readers | README contains no links to private repos; relevant decisions inlined or dropped; link-check passes |
 | **WF-01** | Add `concurrency` control to `release.yml` | Reusable-workflow design | Medium | S | Concurrent `main` pushes can race the release PR/tags | `concurrency` group keyed on ref with `cancel-in-progress: false` present; two rapid pushes serialize |
 | **WF-02** | Add typed `outputs` to `workflow_call` | Reusable-workflow design | Medium | S | Callers get no typed result contract | `on.workflow_call.outputs` exposes at least `release_created` and `tag_name`; documented in README; consumed in a sample caller |
@@ -416,10 +421,11 @@ Verify each against its primary source at implementation time.
 ## 7. Suggested sequencing (phased roadmap)
 
 **Phase 0 — Secret-handling blockers (do first, before any publish).**
-`SEC-01` → `SEC-02` → `SEC-05` → `SEC-06` → `SEC-04` → `SEC-03` → `DOC-01`.
+`SEC-01` → `SEC-02` → `SEC-05` → `SEC-06` → `SEC-04` → `SEC-03` → `SEC-07` → `DOC-01`.
 Rationale: close/justify the residual PEM exposure and correct the doc that hides it
 *before* the code is visible publicly. `SEC-05/06/04` are cheap, high-value tightenings;
-`SEC-03` is mostly a documented AWS-side template.
+`SEC-03` is mostly a documented AWS-side template; `SEC-07` (reviewer-gated Environment)
+layers a human gate on top of the scoped trust policy.
 
 **Phase 1 — Supply-chain hardening.**
 `SC-01` (SHA-pin everything) → `SC-02` (Harden-Runner) → `SC-04` (consumer pin guidance).
