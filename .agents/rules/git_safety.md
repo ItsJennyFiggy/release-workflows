@@ -64,22 +64,3 @@ If you ever accidentally commit a sensitive asset locally:
 5.  Re-commit only the secure changes.
 
 ---
-
-## 🔐 5. Git Authentication & Remote Synchronization Rules
-
-Whenever executing remote Git commands (such as `git pull`, `git fetch`, or `git push`):
-
-1.  **Sync Success Mandate**: You **MUST** verify that every remote Git operation completes successfully. Never ignore a remote synchronization error and proceed to coding or branching.
-2.  **Token Collision Resolution**:
-    If a remote command fails with authentication errors (e.g., `Invalid username or token. Password authentication is not supported`):
-    -   **Standard Repositories**: If the repository does not use a GitHub App, this error is typically caused by an invalid or expired `GH_TOKEN` or `GITHUB_TOKEN` environment variable inherited from the active sandboxed session. You **MUST** retry the command with those variables unset:
-        ```bash
-        GH_TOKEN="" GITHUB_TOKEN="" git pull origin main
-        ```
-    -   **GitHub App Repositories**: If the project has a `.env.git-app` configuration file present, you **MUST** configure the local `gh` wrapper using the `git-auth` skill, and prepend the wrapper's bin directory to the `PATH` for all git/gh CLI calls:
-        ```bash
-        PATH="$PWD/.agents/bin:$PATH" git pull origin main
-        ```
-3.  **App Configuration Shield**:
-    If you configure GitHub App credentials in `.env.git-app` and `.env.git-app.pem`, you **MUST** immediately append those files to `.gitignore` to prevent committing private keys or app credentials to the repository.
-
