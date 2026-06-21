@@ -36,3 +36,4 @@ Before launching a development server, mock service, or background API:
 *   **Migration Ordering**: Always run database migrations sequentially and verify they complete successfully before running seeding or loading steps.
 *   **Schema Safety**: Never bypass the application's ORM or migration framework to run direct raw SQL schema-altering commands unless explicitly instructed by the user.
 *   **Reversible Seeding**: Mock data insertion scripts should be clean, repeatable, and idempotent. Avoid seeding duplicate rows or polluting shared databases.
+
